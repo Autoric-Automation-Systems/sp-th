@@ -20,6 +20,8 @@
 // ================= CONFIG ==============
 #define VERSION "1.0"
 #define DEVICE_TYPE "SP-TH"
+String nameAP = "Smart Plant APP - " + String(DEVICE_TYPE);
+
 //========================================
 
 // RTC_DATA_ATTR persiste automaticamente entre deep sleeps sem necessidade de CRC
@@ -231,7 +233,7 @@ int getBatteryPercent(float voltage)
   return (int)((voltage - volt_min) * 100.0 / (volt_max - volt_min));
 }
 
-float calibration = -0.09;
+float calibration = -0.97;
 
 //================== CheckVoltage ================
 void checkVoltage()
@@ -239,7 +241,6 @@ void checkVoltage()
   // Divisor 10K/10K: Vpin = Vbat/2 → Vbat = Vpin * 2
   float voltage = (analogReadMilliVolts(BATTERY_PIN) / 1000.0) * 2.0 + calibration;
   printf("Bateria: %.2f V\n", voltage);
-  delay(5000);
   int percent = getBatteryPercent(voltage);
   if (abs(percent - lastBattery) > 5)
   {
@@ -291,26 +292,34 @@ void checkWifi()
 //=========== Conect WIFI =======================
 void connectWifi()
 {
-  if (WiFi.status() == WL_CONNECTED)
-    return;
-  Serial.println("Ligando WiFi...");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin();
-  int retry = 0;
-  while (WiFi.status() != WL_CONNECTED && retry < 20)
+  while (WiFi.status() != WL_CONNECTED)
   {
-    delay(500);
-    Serial.print(".");
-    retry++;
-  }
-  Serial.println();
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    Serial.println("WiFi conectado");
-  }
-  else
-  {
-    Serial.println("Falha WiFi");
+    Serial.println("Tentando WiFi...");
+    WiFi.disconnect(true);
+    delay(100);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin();
+    int retry = 0;
+    while (WiFi.status() != WL_CONNECTED && retry < 40)
+    {
+      delay(500);
+      Serial.print(".");
+      retry++;
+    }
+    Serial.println();
+
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      Serial.println("WiFi conectado");
+      return;
+    }
+
+    Serial.println("Falha WiFi, abrindo AP por 2 min...");
+    WiFiManager wm;
+    wm.setConfigPortalTimeout(120);
+    wm.startConfigPortal(nameAP.c_str());
+    WiFi.mode(WIFI_STA); // garante modo STA após fechar o portal
+    Serial.println("AP encerrado, tentando de novo...");
   }
 }
 //======== Disconect WIFI =======================
@@ -400,14 +409,8 @@ void setup()
 {
   startmsg();
 
-  WiFiManager wm;
+  connectWifi();
 
-  if (!wm.autoConnect("SmartPlant"))
-  {
-    ESP.restart();
-  }
-
-  Serial.println();
   Serial.println("WiFi conectado");
 
   mac = WiFi.macAddress();
@@ -438,4 +441,6 @@ void setup()
 // ================= LOOP =================
 void loop()
 {
+  // checkVoltage();
+  // delay(1000);
 }
