@@ -7,7 +7,7 @@
 */
 
 #include <Arduino.h>
-
+#include <Wire.h>
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <HTTPClient.h>
@@ -44,7 +44,7 @@ const long gmtOffset_sec = -3 * 3600;
 const int daylightOffset_sec = 0;
 
 //================ Battery =================
-#define BATTERY_PIN 1 // GPIO conectado ao ponto médio do divisor 10K/10K
+#define BATTERY_PIN 1 // GPIO conectado ao Medidor de Tensão da Bateria
 
 // ================= GLOBAL =================
 Adafruit_AHTX0 aht;
@@ -233,14 +233,15 @@ int getBatteryPercent(float voltage)
   return (int)((voltage - volt_min) * 100.0 / (volt_max - volt_min));
 }
 
-float calibration = -0.97;
-
 //================== CheckVoltage ================
 void checkVoltage()
 {
-  // Divisor 10K/10K: Vpin = Vbat/2 → Vbat = Vpin * 2
-  float voltage = (analogReadMilliVolts(BATTERY_PIN) / 1000.0) * 2.0 + calibration;
-  printf("Bateria: %.2f V\n", voltage);
+  float raw_mv = analogReadMilliVolts(BATTERY_PIN);
+  float voltage = (raw_mv * 5.0) / 1000.0;
+
+  //printf("Pin: %.2f V\n", raw_mv);
+  //printf("Bateria: %.2f V\n", voltage);
+  
   int percent = getBatteryPercent(voltage);
   if (abs(percent - lastBattery) > 5)
   {
@@ -430,7 +431,7 @@ void setup()
   sendEvents();
 
   WiFi.mode(WIFI_OFF);
-
+  delay(5000);
   Serial.println("Entrando em Deep Sleep...");
 
   // ESP32: configura wakeup por timer (microssegundos) e entra em deep sleep
@@ -441,6 +442,4 @@ void setup()
 // ================= LOOP =================
 void loop()
 {
-  // checkVoltage();
-  // delay(1000);
 }
